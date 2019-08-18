@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:timeago/timeago.dart' as timeago;
 
+import 'comps/comps.dart';
 import 'models.dart';
 import 'api.dart' as api;
 
@@ -19,56 +18,45 @@ class LinksList extends StatefulWidget {
 }
 
 class LinkListState extends State<LinksList> {
+  Future _future;
   List<Link> _links = [];
+  String _next = '';
 
   void initState() {
     super.initState();
-    api.loadLinks().then((resp) {
+    fetchLinks();
+  }
+
+  void fetchLinks() {
+    _future = api.loadLinks(next: _next).then((resp) {
       setState(() {
-        _links = resp.results;
+        _next = resp.next;
+        _links = [..._links, ...resp.results];
       });
     });
   }
 
   build(context) {
-    return ListView.builder(
-      padding: EdgeInsets.all(8),
-      itemCount: _links.length,
-      itemBuilder: (context, index) => LinkRow(_links[index]),
-    );
-  }
-}
-
-class LinkRow extends StatelessWidget {
-  final Link link;
-  LinkRow(this.link);
-  build(context) {
-    var domain = Uri.parse(link.url).host;
-    var subtitle =
-        '${link.username} - ${timeago.format(link.created)} - $domain';
-    if (link.description.isNotEmpty) {
-      subtitle += ' - description';
-    }
-    return Container(
-        child: ListTile(
-      title: Hyperlink(link.title, link.url),
-      subtitle: Text(subtitle),
-      trailing: Icon(Icons.more_horiz),
-    ));
-  }
-}
-
-class Hyperlink extends StatelessWidget {
-  final String url;
-  final String text;
-  Hyperlink(this.text, this.url);
-  build(context) {
-    return GestureDetector(
-        child: Text(text,
-            style: TextStyle(
-                color: Color(0xFF3388CC), fontWeight: FontWeight.bold)),
-        onTap: () {
-          launch(url);
+    return FutureBuilder(
+        future: _future,
+        builder: (context, snapshot) {
+          return ListView.builder(
+              padding: EdgeInsets.all(8),
+              itemCount: _links.length + 1,
+              itemBuilder: (context, index) {
+                if (index < _links.length) {
+                  final link = _links[index];
+                  return LinkRow(link);
+                } else if (snapshot.connectionState ==
+                    ConnectionState.waiting) {
+                  return LoadingSpinner();
+                } else if (snapshot.connectionState == ConnectionState.none ||
+                    snapshot.connectionState == ConnectionState.done) {
+                  fetchLinks();
+                  return LoadingSpinner();
+                }
+                return null;
+              });
         });
   }
 }

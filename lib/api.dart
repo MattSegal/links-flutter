@@ -6,12 +6,14 @@ import 'models.dart';
 
 const BASE_URL = 'https://mattslinks.xyz/api';
 
-Future<LinkListResponse> loadLinks() async {
-  final resp = await http.get('$BASE_URL/link/');
+Future<LinkListResponse> loadLinks({String next}) async {
+  final url = next.isNotEmpty ? next : '$BASE_URL/link/';
+  final resp = await http.get(url);
   if (resp.statusCode != 200) {
     throw Exception('Failed to fetch links.');
   }
-  return LinkListResponse.fromJson(jsonDecode(resp.body));
+  final jsonString = utf8.decode(resp.body.codeUnits);
+  return LinkListResponse.fromJson(jsonDecode(jsonString));
 }
 
 class LinkListResponse {
